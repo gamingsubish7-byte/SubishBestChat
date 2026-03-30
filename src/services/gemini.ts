@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { Message } from "../types";
 
 export async function generateChatResponse(
@@ -14,7 +14,7 @@ export async function generateChatResponse(
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const model = options.model || "gemini-3-flash-preview";
+    const model = "gemini-3-flash-preview";
     
     // Convert our message format to Gemini format
     const contents = messages.map(msg => {
@@ -42,6 +42,7 @@ export async function generateChatResponse(
       contents,
       config: {
         systemInstruction,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
       }
     });
 

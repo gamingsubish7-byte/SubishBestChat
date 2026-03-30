@@ -304,9 +304,9 @@ export default function App() {
       let responseContent = "";
       
       // We need the history for the API call
-      // Since we just updated state, we can't easily get the new state here
-      // But we know what we added.
-      const history = currentSession ? [...currentSession.messages, userMessage] : [userMessage];
+      // Limit to last 10 messages for maximum performance
+      const currentMessages = currentSession ? currentSession.messages : [];
+      const history = [...currentMessages, userMessage].slice(-10);
 
       await generateChatResponse(
         history, 
@@ -670,13 +670,22 @@ export default function App() {
                 currentSession.messages[currentSession.messages.length - 1]?.role === 'user' ||
                 (currentSession.messages[currentSession.messages.length - 1]?.role === 'model' && !currentSession.messages[currentSession.messages.length - 1]?.content)
               ) && (
-                <div className="flex gap-5">
-                  <div className="w-9 h-9 rounded-full bg-ds-blue flex items-center justify-center text-white shrink-0">
-                    <Zap size={18} fill="currentColor" />
+                <div className="flex gap-3 md:gap-5 animate-pulse">
+                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-ds-blue flex items-center justify-center text-white shrink-0 shadow-lg shadow-ds-blue/20">
+                    <Zap size={16} className="md:w-[18px] md:h-[18px]" fill="currentColor" />
                   </div>
-                  <div className="flex items-center gap-1.5 py-2">
-                    <Loader2 size={18} className="animate-spin text-ds-blue" />
-                    <span className="text-xs text-ds-muted">Lumina is thinking...</span>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-ds-muted uppercase tracking-wider px-1">
+                      Lumina AI
+                    </span>
+                    <div className="flex items-center gap-2 py-2 px-4 bg-ds-hover/30 rounded-2xl border border-ds-border/50">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-ds-blue rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span className="w-1.5 h-1.5 bg-ds-blue rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span className="w-1.5 h-1.5 bg-ds-blue rounded-full animate-bounce"></span>
+                      </div>
+                      <span className="text-xs font-medium text-ds-blue/80 italic">Lumina is thinking...</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -791,7 +800,7 @@ export default function App() {
                 </div>
                 
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                  {/* Theme Selection */}
+                  {/* Appearance Selection */}
                   <div className="space-y-3">
                     <label className="text-sm font-bold text-ds-muted uppercase tracking-wider">Appearance</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -816,34 +825,15 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Model Selection */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-bold text-ds-muted uppercase tracking-wider">Model</label>
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => setSelectedModel('lumina-v1')}
-                        className={cn(
-                          "flex items-center justify-between w-full p-3 rounded-xl border transition-all text-sm",
-                          selectedModel === 'lumina-v1' ? "bg-ds-blue/10 border-ds-blue text-ds-blue" : "border-ds-border hover:bg-ds-hover text-ds-muted"
-                        )}
-                      >
-                        <div className="flex flex-col items-start text-left">
-                          <span className="font-bold">Lumina-V1</span>
-                          <span className="text-[11px] opacity-70">Gemini 3 Flash (Fast & Efficient)</span>
-                        </div>
-                        {selectedModel === 'lumina-v1' && <Zap size={16} fill="currentColor" />}
-                      </button>
-                      <button
-                        disabled
-                        className="flex items-center justify-between w-full p-3 rounded-xl border border-ds-border bg-ds-bg/50 text-ds-muted opacity-50 cursor-not-allowed text-sm"
-                      >
-                        <div className="flex flex-col items-start text-left">
-                          <span className="font-bold">Lumina-V2</span>
-                          <span className="text-[11px] opacity-70">Coming Soon (Advanced Reasoning)</span>
-                        </div>
-                        <Settings size={16} className="opacity-50" />
-                      </button>
+                  {/* Performance Info */}
+                  <div className="p-4 bg-ds-blue/5 border border-ds-blue/20 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 text-ds-blue">
+                      <Zap size={16} fill="currentColor" />
+                      <span className="text-sm font-bold uppercase tracking-wider">Turbo Mode Active</span>
                     </div>
+                    <p className="text-xs text-ds-muted leading-relaxed">
+                      Lumina is currently optimized for maximum speed using Gemini 3 Flash. Advanced reasoning models are disabled to ensure the fastest possible response times.
+                    </p>
                   </div>
 
                   {/* System Prompt */}
