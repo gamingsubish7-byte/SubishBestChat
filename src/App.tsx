@@ -19,7 +19,9 @@ import {
   Loader2,
   Download,
   Upload,
-  FileText
+  FileText,
+  Copy,
+  Check
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { format } from 'date-fns';
@@ -45,6 +47,7 @@ export default function App() {
   
   // New features state
   const [selectedImage, setSelectedImage] = useState<{ data: string; mimeType: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -100,6 +103,13 @@ export default function App() {
     setSessions([]);
     setCurrentSessionId(null);
     localStorage.removeItem('lumina_username');
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   // Scroll to bottom
@@ -234,9 +244,18 @@ export default function App() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    let sessionId = currentSessionId;
     const userMessageId = generateId();
     const aiMessageId = generateId();
+    
+    // Determine the session ID before state updates to avoid race conditions
+    let sessionId = currentSessionId;
+    let isNewSession = false;
+    
+    if (!sessionId) {
+      sessionId = generateId();
+      isNewSession = true;
+      setCurrentSessionId(sessionId);
+    }
 
     const userMessage: Message = {
       id: userMessageId,
@@ -254,25 +273,19 @@ export default function App() {
     };
 
     setSessions(prev => {
-      let currentSessions = [...prev];
-      let activeSessionId = sessionId;
-
-      if (!activeSessionId) {
+      if (isNewSession) {
         const newSession: ChatSession = {
-          id: generateId(),
+          id: sessionId!,
           title: userMessageContent.slice(0, 30) || 'Image Analysis',
           messages: [userMessage, aiMessage],
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
-        activeSessionId = newSession.id;
-        sessionId = activeSessionId;
-        setCurrentSessionId(activeSessionId);
-        return [newSession, ...currentSessions];
+        return [newSession, ...prev];
       }
 
-      return currentSessions.map(s => {
-        if (s.id === activeSessionId) {
+      return prev.map(s => {
+        if (s.id === sessionId) {
           const updatedMessages = [...s.messages, userMessage, aiMessage];
           return {
             ...s,
@@ -632,17 +645,31 @@ export default function App() {
                       </div>
                     )}
                     <div className={cn(
-                      "text-ds-text leading-relaxed break-words w-full",
+                      "text-ds-text leading-relaxed break-words w-full relative group/msg",
                       message.role === 'user' ? "bg-ds-hover px-3 py-2 md:px-4 md:py-2.5 rounded-2xl" : ""
                     )}>
                       <div className="markdown-body overflow-x-auto">
                         <Markdown>{message.content}</Markdown>
                       </div>
+                      
+                      {message.role === 'model' && message.content && (
+                        <button
+                          onClick={() => copyToClipboard(message.content, message.id)}
+                          className="absolute -right-2 top-0 p-1.5 bg-ds-sidebar border border-ds-border rounded-lg text-ds-muted hover:text-ds-blue hover:border-ds-blue transition-all opacity-0 group-hover/msg:opacity-100 shadow-sm"
+                          title="Copy response"
+                        >
+                          {copiedId === message.id ? <Check size={14} /> : <Copy size={14} />}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
-              {isLoading && currentSession.messages[currentSession.messages.length - 1]?.role === 'user' && (
+              {isLoading && (
+                !currentSession?.messages.length || 
+                currentSession.messages[currentSession.messages.length - 1]?.role === 'user' ||
+                (currentSession.messages[currentSession.messages.length - 1]?.role === 'model' && !currentSession.messages[currentSession.messages.length - 1]?.content)
+              ) && (
                 <div className="flex gap-5">
                   <div className="w-9 h-9 rounded-full bg-ds-blue flex items-center justify-center text-white shrink-0">
                     <Zap size={18} fill="currentColor" />
