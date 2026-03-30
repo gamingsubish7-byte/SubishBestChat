@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  --ds-blue: #4D6BFE;
+  --ds-bg: #0a0a0a;
+  --ds-sidebar: #121212;
+  --ds-border: #262626;
+  --ds-text: #f5f5f5;
+  --ds-muted: #a3a3a3;
+  --ds-hover: #1f1f1f;
+  --ds-input: #171717;
+  --ds-white: #ffffff;
+}
+
+:root.light {
+  --ds-bg: #ffffff;
+  --ds-sidebar: #f7f7f7;
+  --ds-border: #e5e5e5;
+  --ds-text: #171717;
+  --ds-muted: #737373;
+  --ds-hover: #f0f0f0;
+  --ds-input: #f9f9f9;
+  --ds-white: #171717;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-ds-blue: var(--ds-blue);
+  --color-ds-bg: var(--ds-bg);
+  --color-ds-sidebar: var(--ds-sidebar);
+  --color-ds-border: var(--ds-border);
+  --color-ds-text: var(--ds-text);
+  --color-ds-muted: var(--ds-muted);
+  --color-ds-hover: var(--ds-hover);
+  --color-ds-input: var(--ds-input);
+}
+
+@layer base {
+  body {
+    @apply font-sans text-ds-text bg-ds-bg transition-colors duration-200;
+  }
+}
+
+.markdown-body {
+  @apply text-[15px] leading-relaxed text-ds-text max-w-full overflow-hidden break-words;
+}
+
+.markdown-body p {
+  @apply mb-4 last:mb-0;
+}
+
+.markdown-body code {
+  @apply font-mono bg-white/10 px-1.5 py-0.5 rounded text-[13px] text-ds-blue;
+}
+
+.light .markdown-body code {
+  @apply bg-black/5;
+}
+
+.markdown-body pre {
+  @apply bg-[#1e1e1e] text-gray-100 p-4 rounded-xl my-4 overflow-x-auto font-mono text-[13px] border border-white/10 max-w-full;
+}
+
+.markdown-body ul, .markdown-body ol {
+  @apply mb-4 ml-6;
+}
+
+.markdown-body ul {
+  @apply list-disc;
+}
+
+.markdown-body ol {
+  @apply list-decimal;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  @apply font-bold mb-3 mt-6 first:mt-0 text-[var(--ds-white)];
+}
+
+.markdown-body h1 { @apply text-2xl; }
+.markdown-body h2 { @apply text-xl; }
+.markdown-body h3 { @apply text-lg; }
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-ds-border;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-ds-muted/30;
+}
