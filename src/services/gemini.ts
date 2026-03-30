@@ -14,7 +14,7 @@ export async function generateChatResponse(
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const model = "gemini-3-flash-preview";
+    const model = "gemini-3.1-flash-lite-preview";
     
     // Convert our message format to Gemini format
     const contents = messages.map(msg => {

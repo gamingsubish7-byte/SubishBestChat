@@ -832,7 +832,7 @@ export default function App() {
                       <span className="text-sm font-bold uppercase tracking-wider">Turbo Mode Active</span>
                     </div>
                     <p className="text-xs text-ds-muted leading-relaxed">
-                      Lumina is currently optimized for maximum speed using Gemini 3 Flash. Advanced reasoning models are disabled to ensure the fastest possible response times.
+                      Lumina is currently optimized for maximum speed and efficiency using Gemini 3.1 Flash Lite. This model provides the fastest possible response times and high request limits.
                     </p>
                   </div>
 
