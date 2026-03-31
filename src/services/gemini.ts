@@ -29,7 +29,7 @@ export async function testApiKey(key: string) {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     // Use query parameter for the key as it is the most standard way
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${trimmedKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${trimmedKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -113,12 +113,8 @@ export async function generateChatResponse(
 
   try {
     // Map internal model names to Gemini API model names
-    let model = "gemini-1.5-flash";
-    if (options.model === 'lumina-v2') {
-      model = "gemini-1.5-pro";
-    } else if (options.model === 'lumina-lite') {
-      model = "gemini-1.5-flash-8b";
-    }
+    // Only using the free-tier optimized model as requested
+    const model = "gemini-3.1-flash-lite-preview";
 
     console.log(`[Gemini Service] Using model: ${model} | Source: ${source}`);
     

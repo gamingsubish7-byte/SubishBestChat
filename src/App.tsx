@@ -43,7 +43,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [selectedModel, setSelectedModel] = useState<'lumina-v1' | 'lumina-v2'>('lumina-v1');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful, intelligent AI assistant named Lumina AI. Provide concise, accurate, and well-formatted responses. Use markdown for code blocks and lists.');
   const [apiKeySource, setApiKeySource] = useState<'lumina' | 'custom'>(() => 
     (localStorage.getItem('lumina_api_key_source') as 'lumina' | 'custom') || 'lumina'
@@ -324,7 +323,7 @@ export default function App() {
     if ((!input.trim() && !selectedImage) || isLoading) return;
 
     setError(null);
-    console.log(`[App] handleSend triggered. Current State - Source: ${apiKeySource}, Model: ${selectedModel}, CustomKey: ${customApiKey ? customApiKey.substring(0, 6) + '...' : 'None'}`);
+    console.log(`[App] handleSend triggered. Current State - Source: ${apiKeySource}, Model: Lumina-Lite, CustomKey: ${customApiKey ? customApiKey.substring(0, 6) + '...' : 'None'}`);
 
     if (apiKeySource === 'custom' && !customApiKey.trim()) {
       setError("Please enter a custom API key in Settings or switch to Lumina (Original).");
@@ -400,7 +399,7 @@ export default function App() {
       });
     });
 
-    console.log(`[App] Sending message. Source: ${apiKeySource}, Model: ${selectedModel}, Key: ${customApiKey ? customApiKey.substring(0, 4) + '...' : 'None'}`);
+    console.log(`[App] Sending message. Source: ${apiKeySource}, Model: Lumina-Lite, Key: ${customApiKey ? customApiKey.substring(0, 4) + '...' : 'None'}`);
     
     try {
       let responseContent = "";
@@ -429,6 +428,7 @@ export default function App() {
         },
         { 
           systemPrompt,
+          model: 'lumina-lite',
           signal: controller.signal,
           apiKey: apiKeySource === 'custom' ? customApiKey : undefined
         }
@@ -672,11 +672,8 @@ export default function App() {
                 <PanelLeft size={20} />
               </button>
             )}
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-ds-hover cursor-pointer transition-all">
-              <span className="text-sm font-semibold">
-                {selectedModel === 'lumina-v1' ? 'Lumina-V1' : 'Lumina-V2'}
-              </span>
-              <ChevronDown size={14} className="text-ds-muted" />
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all">
+              <span className="text-sm font-semibold">Lumina-Lite</span>
             </div>
             <div className={cn(
               "hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider",
@@ -952,10 +949,10 @@ export default function App() {
                   <div className="p-4 bg-ds-blue/5 border border-ds-blue/20 rounded-xl space-y-2">
                     <div className="flex items-center gap-2 text-ds-blue">
                       <Zap size={16} fill="currentColor" />
-                      <span className="text-sm font-bold uppercase tracking-wider">Turbo Mode Active</span>
+                      <span className="text-sm font-bold uppercase tracking-wider">Ultra-Lite Mode Active</span>
                     </div>
                     <p className="text-xs text-ds-muted leading-relaxed">
-                      Lumina is currently optimized for maximum speed and efficiency using Gemini 3.1 Flash Lite. This model provides the fastest possible response times and high request limits.
+                      Lumina is currently optimized for free-tier usage with Gemini 3.1 Flash Lite. This model supports up to 1,500 requests per day and provides the fastest possible response times.
                     </p>
                   </div>
 
