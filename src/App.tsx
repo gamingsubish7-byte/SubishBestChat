@@ -21,13 +21,14 @@ import {
   Upload,
   FileText,
   Copy,
-  Check
+  Check,
+  Key
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { format } from 'date-fns';
 import { cn } from './lib/utils';
 import { ChatSession, Message } from './types';
-import { generateChatResponse } from './services/gemini';
+import { generateChatResponse, testApiKey as validateApiKey } from './services/gemini';
 
 export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -44,6 +45,55 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [selectedModel, setSelectedModel] = useState<'lumina-v1' | 'lumina-v2'>('lumina-v1');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful, intelligent AI assistant named Lumina AI. Provide concise, accurate, and well-formatted responses. Use markdown for code blocks and lists.');
+  const [apiKeySource, setApiKeySource] = useState<'lumina' | 'custom'>(() => 
+    (localStorage.getItem('lumina_api_key_source') as 'lumina' | 'custom') || 'lumina'
+  );
+  const [customApiKey, setCustomApiKey] = useState(() => 
+    localStorage.getItem('lumina_custom_api_key') || ''
+  );
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const testAbortControllerRef = useRef<AbortController | null>(null);
+
+  const handleTestApiKey = async () => {
+    if (!customApiKey.trim()) {
+      setTestResult({ success: false, message: "Please enter an API key first." });
+      return;
+    }
+
+    // Abort any previous test
+    if (testAbortControllerRef.current) {
+      testAbortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    testAbortControllerRef.current = controller;
+    
+    setIsTestingKey(true);
+    setTestResult(null);
+
+    try {
+      const isValid = await validateApiKey(customApiKey.trim());
+      
+      if (isValid) {
+        setTestResult({ success: true, message: "API Key verified successfully!" });
+      } else {
+        setTestResult({ success: false, message: "API call succeeded, but the response was incorrect. The key might be restricted." });
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('API Key Test aborted');
+        return;
+      }
+      console.error('API Key Test Error:', err);
+      setTestResult({ success: false, message: err.message || "Invalid API Key or connection error." });
+    } finally {
+      if (testAbortControllerRef.current === controller) {
+        setIsTestingKey(false);
+        testAbortControllerRef.current = null;
+      }
+    }
+  };
   
   // New features state
   const [selectedImage, setSelectedImage] = useState<{ data: string; mimeType: string } | null>(null);
@@ -74,7 +124,7 @@ export default function App() {
     }
   }, [theme]);
 
-  // Load username from localStorage (but NOT sessions)
+  // Load settings from localStorage
   useEffect(() => {
     const savedUsername = localStorage.getItem('lumina_username');
     if (savedUsername) {
@@ -82,8 +132,42 @@ export default function App() {
     }
   }, []);
 
+  // Save settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('lumina_api_key_source', apiKeySource);
+    localStorage.setItem('lumina_custom_api_key', customApiKey);
+  }, [apiKeySource, customApiKey]);
+
   // Sessions are NOT saved to localStorage anymore as per user request
   // to make history vanish after site refresh.
+
+  // Create initial session if logged in but no sessions
+  useEffect(() => {
+    if (username && sessions.length === 0 && !currentSessionId) {
+      const sessionId = generateId();
+      const greeting = apiKeySource === 'lumina' 
+        ? "This is original key and stuff" 
+        : "This is second key";
+        
+      const initialSession: ChatSession = {
+        id: sessionId,
+        title: 'New Chat',
+        messages: [
+          {
+            id: generateId(),
+            role: 'model',
+            content: greeting,
+            timestamp: Date.now()
+          }
+        ],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      
+      setSessions([initialSession]);
+      setCurrentSessionId(sessionId);
+    }
+  }, [username, apiKeySource]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,10 +175,6 @@ export default function App() {
       const name = tempUsername.trim();
       setUsername(name);
       localStorage.setItem('lumina_username', name);
-      
-      // We don't load sessions anymore as they vanish on refresh
-      setSessions([]);
-      setCurrentSessionId(null);
     }
   };
 
@@ -122,10 +202,21 @@ export default function App() {
   const generateId = () => Math.random().toString(36).substring(2, 15);
 
   const createNewSession = () => {
+    const greeting = apiKeySource === 'lumina' 
+      ? "This is original key and stuff" 
+      : "This is second key";
+      
     const newSession: ChatSession = {
       id: generateId(),
       title: 'New Chat',
-      messages: [],
+      messages: [
+        {
+          id: generateId(),
+          role: 'model',
+          content: greeting,
+          timestamp: Date.now()
+        }
+      ],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -233,14 +324,21 @@ export default function App() {
     if ((!input.trim() && !selectedImage) || isLoading) return;
 
     setError(null);
+    console.log(`[App] handleSend triggered. Current State - Source: ${apiKeySource}, Model: ${selectedModel}, CustomKey: ${customApiKey ? customApiKey.substring(0, 6) + '...' : 'None'}`);
+
+    if (apiKeySource === 'custom' && !customApiKey.trim()) {
+      setError("Please enter a custom API key in Settings or switch to Lumina (Original).");
+      setIsSettingsOpen(true);
+      return;
+    }
+
     const userMessageContent = input.trim();
     const userImageData = selectedImage;
     
     setInput('');
     setSelectedImage(null);
     setIsLoading(true);
-
-    // Create new AbortController for this request
+    setError(null);
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -262,7 +360,8 @@ export default function App() {
       role: 'user',
       content: userMessageContent,
       timestamp: Date.now(),
-      imageData: userImageData || undefined
+      imageData: userImageData || undefined,
+      apiKeySource: apiKeySource
     };
 
     const aiMessage: Message = {
@@ -270,6 +369,7 @@ export default function App() {
       role: 'model',
       content: '',
       timestamp: Date.now(),
+      apiKeySource: apiKeySource
     };
 
     setSessions(prev => {
@@ -300,6 +400,8 @@ export default function App() {
       });
     });
 
+    console.log(`[App] Sending message. Source: ${apiKeySource}, Model: ${selectedModel}, Key: ${customApiKey ? customApiKey.substring(0, 4) + '...' : 'None'}`);
+    
     try {
       let responseContent = "";
       
@@ -327,8 +429,8 @@ export default function App() {
         },
         { 
           systemPrompt,
-          model: selectedModel === 'lumina-v1' ? 'gemini-3-flash-preview' : 'gemini-3.1-pro-preview',
-          signal: controller.signal
+          signal: controller.signal,
+          apiKey: apiKeySource === 'custom' ? customApiKey : undefined
         }
       );
 
@@ -576,6 +678,15 @@ export default function App() {
               </span>
               <ChevronDown size={14} className="text-ds-muted" />
             </div>
+            <div className={cn(
+              "hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider",
+              apiKeySource === 'custom' 
+                ? "border-purple-500/30 text-purple-500 bg-purple-500/5" 
+                : "border-ds-blue/30 text-ds-blue bg-ds-blue/5"
+            )}>
+              <div className={cn("w-1.5 h-1.5 rounded-full", apiKeySource === 'custom' ? "bg-purple-500" : "bg-ds-blue")} />
+              {apiKeySource === 'custom' ? 'Custom Key' : 'Lumina Key'}
+            </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             {currentSession && (
@@ -631,9 +742,21 @@ export default function App() {
                     "flex flex-col gap-1.5 max-w-[90%] md:max-w-[85%]",
                     message.role === 'user' ? "items-end" : "items-start"
                   )}>
-                    <span className="text-[10px] font-bold text-ds-muted uppercase tracking-wider px-1">
-                      {message.role === 'user' ? username : 'Lumina AI'}
-                    </span>
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-[10px] font-bold text-ds-muted uppercase tracking-wider">
+                        {message.role === 'user' ? username : 'Lumina AI'}
+                      </span>
+                      {message.apiKeySource && (
+                        <span className={cn(
+                          "text-[8px] px-1 rounded border font-bold uppercase tracking-tighter",
+                          message.apiKeySource === 'custom' 
+                            ? "border-purple-500/30 text-purple-500 bg-purple-500/5" 
+                            : "border-ds-blue/30 text-ds-blue bg-ds-blue/5"
+                        )}>
+                          {message.apiKeySource === 'custom' ? 'Custom' : 'Lumina'}
+                        </span>
+                      )}
+                    </div>
                     {message.imageData && (
                       <div className="rounded-xl overflow-hidden border border-ds-border max-w-full md:max-w-sm">
                         <img 
@@ -834,6 +957,92 @@ export default function App() {
                     <p className="text-xs text-ds-muted leading-relaxed">
                       Lumina is currently optimized for maximum speed and efficiency using Gemini 3.1 Flash Lite. This model provides the fastest possible response times and high request limits.
                     </p>
+                  </div>
+
+                  {/* API Key Settings */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-bold text-ds-muted uppercase tracking-wider">API Keys</label>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setApiKeySource('lumina')}
+                        className={cn(
+                          "flex items-center justify-between w-full p-3 rounded-xl border transition-all text-sm",
+                          apiKeySource === 'lumina' ? "bg-ds-blue/10 border-ds-blue text-ds-blue" : "border-ds-border hover:bg-ds-hover text-ds-muted"
+                        )}
+                      >
+                        <div className="flex flex-col items-start text-left">
+                          <span className="font-bold">Lumina (Original)</span>
+                          <span className="text-[11px] opacity-70">Use the built-in API key</span>
+                        </div>
+                        {apiKeySource === 'lumina' && <Check size={16} />}
+                      </button>
+                      
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => setApiKeySource('custom')}
+                          className={cn(
+                            "flex items-center justify-between w-full p-3 rounded-xl border transition-all text-sm",
+                            apiKeySource === 'custom' ? "bg-ds-blue/10 border-ds-blue text-ds-blue" : "border-ds-border hover:bg-ds-hover text-ds-muted"
+                          )}
+                        >
+                          <div className="flex flex-col items-start text-left">
+                            <span className="font-bold">Custom Key</span>
+                            <span className="text-[11px] opacity-70">Use your own Gemini API key</span>
+                          </div>
+                          {apiKeySource === 'custom' && <Check size={16} />}
+                        </button>
+                        
+                        {apiKeySource === 'custom' && (
+                          <div className="space-y-3">
+                            <div className="relative">
+                              <input
+                                type="password"
+                                value={customApiKey}
+                                onChange={(e) => {
+                                  setCustomApiKey(e.target.value);
+                                  if (apiKeySource !== 'custom') setApiKeySource('custom');
+                                  setTestResult(null);
+                                }}
+                                placeholder="Enter your API key..."
+                                className="w-full bg-ds-input border border-ds-border rounded-xl p-3 text-sm focus:outline-none focus:border-ds-blue pr-24"
+                              />
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                <button
+                                  onClick={handleTestApiKey}
+                                  disabled={isTestingKey || !customApiKey.trim()}
+                                  className="text-[10px] uppercase tracking-wider font-bold bg-ds-blue/20 text-ds-blue px-2 py-1 rounded-md hover:bg-ds-blue/30 disabled:opacity-50 transition-colors"
+                                >
+                                  {isTestingKey ? 'Testing...' : 'Test'}
+                                </button>
+                                {isTestingKey && (
+                                  <button
+                                    onClick={() => testAbortControllerRef.current?.abort()}
+                                    className="text-[10px] uppercase tracking-wider font-bold bg-red-500/20 text-red-500 px-2 py-1 rounded-md hover:bg-red-500/30 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                                <Key size={14} className="text-ds-muted" />
+                              </div>
+                            </div>
+                            
+                            {testResult && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={cn(
+                                  "text-xs p-2 rounded-lg flex items-center gap-2",
+                                  testResult.success ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                                )}
+                              >
+                                {testResult.success ? <Check size={14} /> : <Zap size={14} />}
+                                <span>{testResult.message}</span>
+                              </motion.div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* System Prompt */}

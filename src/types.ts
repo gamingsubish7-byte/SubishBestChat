@@ -7,6 +7,7 @@ export interface Message {
     data: string; // base64
     mimeType: string;
   };
+  apiKeySource?: 'lumina' | 'custom';
 }
 
 export interface ChatSession {
